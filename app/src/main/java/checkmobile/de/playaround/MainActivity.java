@@ -56,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            Log.e(TAG, "Scrolled "+distanceX+ " " + distanceY);
+            //Log.e(TAG, "Scrolled "+distanceX+ " " + distanceY);
             imageView.setPan(-distanceX, -distanceY);
             return true;
         }
@@ -70,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         imageView = (CustomImageView) findViewById(R.id.imageView);
         mSvg = Sharp.loadResource(getResources(), R.raw.vectorpaint);
-        SGD = new ScaleGestureDetector(this,new ScaleListener());
+       SGD = new ScaleGestureDetector(this,new ScaleListener());
         GD = new GestureDetector(this, mGestureListener);
     }
 

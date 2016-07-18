@@ -79,7 +79,7 @@ public class CustomImageView extends ImageView{
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            Log.e(TAG, "Scrolled "+distanceX+ " " + distanceY);
+            //Log.e(TAG, "Scrolled "+distanceX+ " " + distanceY);
             setPan(-distanceX, -distanceY);
             return true;
         }
@@ -225,7 +225,7 @@ public class CustomImageView extends ImageView{
 
 
 
-        Log.e(TAG, "maxX "+getWidth());
+       // Log.e(TAG, "maxX "+getWidth());
 
         getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
             public boolean onPreDraw() {
@@ -244,15 +244,24 @@ public class CustomImageView extends ImageView{
 
     }
 
+    private float[] values = new float[9];
+
     public void setScale(float scale) {
         this.scale = scale;
-        this.matrix.setScale(scale,scale);
+
+
+        this.matrix.getValues(values);
+        values[0] = scale;
+        values[4] = scale;
+        this.matrix.setValues(values);
+
+        //this.matrix.setScale(scale,scale);
 
         for(String id: cache.keySet()) {
             PathInfo pi = cache.get(id);
             pi.zoomedPath = new Path(pi.path);
             pi.zoomedPath.transform(matrix);
-            pi.recalculate();
+            //pi.recalculate();
         }
 
         invalidate();
@@ -265,7 +274,7 @@ public class CustomImageView extends ImageView{
             PathInfo pi = cache.get(id);
             pi.zoomedPath = new Path(pi.path);
             pi.zoomedPath.transform(matrix);
-            pi.recalculate();
+            //pi.recalculate();
         }
 
         invalidate();
@@ -278,7 +287,7 @@ public class CustomImageView extends ImageView{
 
         @Override
         public boolean onDown(MotionEvent e) {
-            Log.d("s Tap", "s at: ");
+            //Log.d("s Tap", "s at: ");
             return true;
         }
         // event when double tap occurs
@@ -287,7 +296,7 @@ public class CustomImageView extends ImageView{
             float x = e.getX();
             float y = e.getY();
 
-            Log.d("Double Tap", "Tapped at: (" + x + "," + y + ")");
+            //Log.d("Double Tap", "Tapped at: (" + x + "," + y + ")");
 
             return true;
         }
@@ -301,7 +310,7 @@ public class CustomImageView extends ImageView{
         if (event.getAction() == event.ACTION_DOWN) {
             if (firstTouch && (System.currentTimeMillis() - time) <= 300) {
                 //do stuff here for double tap
-                Log.e("** DOUBLE TAP**", " second tap ");
+                //Log.e("** DOUBLE TAP**", " second tap ");
 
 
                 for(String id: cache.keySet()) {
@@ -319,7 +328,7 @@ public class CustomImageView extends ImageView{
             } else {
                 firstTouch = true;
                 time = System.currentTimeMillis();
-                Log.e("** SINGLE  TAP**", " First Tap time  " + time);
+                //Log.e("** SINGLE  TAP**", " First Tap time  " + time);
 
 
 
