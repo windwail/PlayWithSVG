@@ -1,5 +1,8 @@
 package checkmobile.de.playaround;
 
+import android.app.Activity;
+import android.os.Bundle;
+
 public class MultiTouchActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {

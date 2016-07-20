@@ -23,6 +23,9 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.ViewTreeObserver;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageView;
 
 import com.pixplicity.sharp.OnSvgElementListener;
@@ -52,6 +55,10 @@ public class MainActivity extends AppCompatActivity {
 
     private GestureDetector GD ;
 
+    private Button zoomIn;
+
+    private Button zoomOut;
+
     private final GestureDetector.SimpleOnGestureListener mGestureListener = new GestureDetector.SimpleOnGestureListener() {
 
         @Override
@@ -67,38 +74,35 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        //Remove title bar
+        this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+//Remove notification bar
+        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+
         setContentView(R.layout.activity_main);
         imageView = (CustomImageView) findViewById(R.id.imageView);
+        zoomIn = (Button) findViewById(R.id.zoomIn);
+        zoomOut = (Button) findViewById(R.id.zoomOut);
         mSvg = Sharp.loadResource(getResources(), R.raw.vectorpaint);
-       SGD = new ScaleGestureDetector(this,new ScaleListener());
-        GD = new GestureDetector(this, mGestureListener);
+
+        zoomIn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                imageView.incScale();
+            }
+        });
+
+        zoomOut.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                imageView.decScale();
+            }
+        });
     }
 
 
-    @Override
-    public boolean onTouchEvent(MotionEvent event){
-        SGD.onTouchEvent(event);
-        GD.onTouchEvent(event);
 
-        return super.onTouchEvent(event);
-    }
-
-    private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
-        @Override
-        public boolean onScale(ScaleGestureDetector detector) {
-            scale *= detector.getScaleFactor();
-            scale = Math.max(0.5f, Math.min(scale, 10f));
-            imageView.setScale(scale);
-            return true;
-        }
-
-        @Override
-        public boolean onScaleBegin(ScaleGestureDetector detector) {
-            return true;
-        }
-
-        @Override
-        public void onScaleEnd(ScaleGestureDetector detector) {
-        }
-    }
 }
