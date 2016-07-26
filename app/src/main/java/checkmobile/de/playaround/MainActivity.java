@@ -42,34 +42,13 @@ import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String DEBUG_TAG = "Gestures";
-    private String TAG = this.getClass().getName();
-
-    private Sharp mSvg;
-
-    private CustomImageView imageView;
-
-    private Float scale = 1f;
-
-    private ScaleGestureDetector SGD;
-
-    private GestureDetector GD ;
+    private SimpleImageView imageView;
 
     private Button zoomIn;
 
     private Button zoomOut;
 
-    private final GestureDetector.SimpleOnGestureListener mGestureListener = new GestureDetector.SimpleOnGestureListener() {
 
-        @Override
-        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            //Log.e(TAG, "Scrolled "+distanceX+ " " + distanceY);
-            imageView.setPan(-distanceX, -distanceY);
-            return true;
-        }
-
-
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,24 +62,26 @@ public class MainActivity extends AppCompatActivity {
 
 
         setContentView(R.layout.activity_main);
-        imageView = (CustomImageView) findViewById(R.id.imageView);
+        imageView = (SimpleImageView) findViewById(R.id.imageView);
+
+        /*
         zoomIn = (Button) findViewById(R.id.zoomIn);
         zoomOut = (Button) findViewById(R.id.zoomOut);
-        mSvg = Sharp.loadResource(getResources(), R.raw.vectorpaint);
 
         zoomIn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                imageView.incScale();
+                //imageView.incScale();
             }
         });
 
         zoomOut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                imageView.decScale();
+                //imageView.decScale();
             }
         });
+        */
     }
 
 

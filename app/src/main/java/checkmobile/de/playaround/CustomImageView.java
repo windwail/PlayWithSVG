@@ -1,6 +1,7 @@
 package checkmobile.de.playaround;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
@@ -35,11 +36,12 @@ import java.util.TreeMap;
 /**
  * Created by icetusk on 19.05.16.
  */
-public class CustomImageView extends ImageView{
+public class CustomImageView extends ImageView {
 
     private String TAG = this.getClass().getName();
 
     private Sharp mSvg;
+    private Sharp mSvg2;
 
     private Path p;
 
@@ -60,8 +62,6 @@ public class CustomImageView extends ImageView{
 
     private TreeMap<String, PathInfo> sorted_map;
 
-    private GestureDetector gestureDetector;
-
     private float maxX;
 
     private float maxY;
@@ -78,10 +78,18 @@ public class CustomImageView extends ImageView{
 
     private float translateY;
 
+    private float focusX;
+
+    private float focusY;
+
+    private float startZoomX;
+
+    private float startZoomY;
+
+
     Rect rect;
 
-    private GestureDetector GD ;
-
+    private GestureDetector GD;
 
     // We can be in one of these 3 states
     static final int NONE = 0;
@@ -97,7 +105,7 @@ public class CustomImageView extends ImageView{
     float[] m;
 
     int viewWidth, viewHeight;
-    static final int CLICK = 3;
+    static final int CLICK = 6;
     float saveScale = 1f;
     protected float origWidth, origHeight;
     int oldMeasuredWidth, oldMeasuredHeight;
@@ -106,18 +114,9 @@ public class CustomImageView extends ImageView{
 
     Context context;
 
+    private Bitmap bitmap;
 
-    private final GestureDetector.SimpleOnGestureListener mGestureListener = new GestureDetector.SimpleOnGestureListener() {
-
-        @Override
-        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            //Log.e(TAG, "Scrolled "+distanceX+ " " + distanceY);
-            setPan(-distanceX, -distanceY);
-            return true;
-        }
-
-
-    };
+    private PointF clickPoint;
 
     public CustomImageView(Context context) {
         super(context);
@@ -136,11 +135,9 @@ public class CustomImageView extends ImageView{
     }
 
     private void init(Context context) {
-        gestureDetector = new GestureDetector(context, new GestureListener());
         ValueComparator bvc = new ValueComparator(cache);
         sorted_map = new TreeMap<>(bvc);
         sharedConstructing(context);
-
     }
 
     class ValueComparator implements Comparator<String> {
@@ -156,8 +153,8 @@ public class CustomImageView extends ImageView{
             PathInfo pia = base.get(a);
             PathInfo pib = base.get(b);
 
-            float areaA =  pia.rectf.height() * pia.rectf.width();
-            float areaB =  pib.rectf.height() * pib.rectf.width();
+            float areaA = pia.rectf.height() * pia.rectf.width();
+            float areaB = pib.rectf.height() * pib.rectf.width();
 
             if (areaA >= areaB) {
                 return -1;
@@ -204,11 +201,11 @@ public class CustomImageView extends ImageView{
                             fixTrans();
                             last.set(curr.x, curr.y);
 
-                            panMatrix.postTranslate(fixTransX,fixTransY);
+                            panMatrix.postTranslate(fixTransX, fixTransY);
 
                             translateX -= deltaX;
                             translateY -= deltaY;
-                            Log.e("MOVE", translateX+" "+translateY);
+                            Log.e("MOVE", translateX + " " + translateY);
 
                             /*
                             for(String id: cache.keySet()) {
@@ -224,17 +221,19 @@ public class CustomImageView extends ImageView{
                             invalidate();
                         }
 
-
-
-
                         break;
 
                     case MotionEvent.ACTION_UP:
                         mode = NONE;
                         int xDiff = (int) Math.abs(curr.x - start.x);
                         int yDiff = (int) Math.abs(curr.y - start.y);
-                        if (xDiff < CLICK && yDiff < CLICK)
+                        if (xDiff < CLICK && yDiff < CLICK) {
                             performClick();
+                            Log.e("CLICK", "CLICK");
+
+                            clickPoint = curr;
+
+                        }
                         break;
 
                     case MotionEvent.ACTION_POINTER_UP:
@@ -253,17 +252,24 @@ public class CustomImageView extends ImageView{
 
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
 
-        private Matrix scaleMatrix = new Matrix();
-
         @Override
         public boolean onScaleBegin(ScaleGestureDetector detector) {
             mode = ZOOM;
+
+            startZoomX = detector.getFocusX();
+            startZoomY = detector.getFocusY();
+
+            startZoomX = startZoomX / saveScale - ((-translateX) / saveScale);
+            startZoomY = startZoomY / saveScale - ((-translateY) / saveScale);
+
             return true;
         }
 
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
             float mScaleFactor = detector.getScaleFactor();
+            focusX = detector.getFocusX();
+            focusY = detector.getFocusY();
 
             saveScale *= mScaleFactor;
 
@@ -337,29 +343,30 @@ public class CustomImageView extends ImageView{
             float scaleY = (float) viewHeight / (float) maxY;
             saveScale = Math.min(scaleX, scaleY);
 
-            /*
-            // Center the image
-            float redundantYSpace = (float) viewHeight - (scale * (float) maxY);
-            float redundantXSpace = (float) viewWidth - (scale * (float) maxX);
-            redundantYSpace /= (float) 2;
-            redundantXSpace /= (float) 2;
-
-            matrix.postTranslate(redundantXSpace, redundantYSpace);
-
-            origWidth = viewWidth - 2 * redundantXSpace;
-            origHeight = viewHeight - 2 * redundantYSpace;
-            */
-
             origWidth = viewWidth;
             origHeight = viewHeight;
 
-            setImageMatrix(matrix);
+            // We need to draw on screen without scaling.
+            Matrix scaleMatrix = new Matrix();
+            scaleMatrix.setScale(saveScale, saveScale);
+
+            for(PathInfo pi: cache.values()) {
+                pi.path.transform(scaleMatrix);
+            }
+
+            maxX *= saveScale;
+            maxY *= saveScale;
+
+            saveScale = 1;
+
+            bitmap = Bitmap.createBitmap((int) maxX, (int) maxY, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            drawEverything(canvas);
+
+
         }
 
     }
-
-
-
 
 
     @Override
@@ -379,7 +386,7 @@ public class CustomImageView extends ImageView{
             public void onSvgEnd(@NonNull Canvas canvas,
                                  @Nullable RectF bounds) {
 
-                rect = new Rect((int)bounds.left, (int)bounds.right, (int)bounds.top, (int)bounds.bottom);
+                rect = new Rect((int) bounds.left, (int) bounds.right, (int) bounds.top, (int) bounds.bottom);
 
                 Paint paint = new Paint();
                 paint.setStyle(Paint.Style.STROKE);
@@ -398,6 +405,9 @@ public class CustomImageView extends ImageView{
                                       @NonNull Canvas canvas,
                                       @Nullable RectF canvasBounds,
                                       @Nullable Paint paint) {
+
+                Log.e("PRINT", id);
+
                 p = (Path) element;
                 if (p instanceof Path) {
 
@@ -406,24 +416,22 @@ public class CustomImageView extends ImageView{
                     if (!cache.containsKey(id)) {
                         p.computeBounds(rectF, true);
 
-                        if(rectF.right > maxX) {
+                        if (rectF.right > maxX) {
                             maxX = rectF.right;
-                            Log.e("MAX", ""+rectF.right);
+                            Log.e("MAX", "" + rectF.right);
                         }
 
-                        if(rectF.bottom > maxY) {
+                        if (rectF.bottom > maxY) {
                             maxY = rectF.bottom;
                         }
 
-                        if(rectF.left < minX) {
+                        if (rectF.left < minX) {
                             minX = rectF.left;
                         }
 
-                        if(rectF.top < minY) {
+                        if (rectF.top < minY) {
                             minY = rectF.top;
                         }
-
-
 
                         region.setPath(p, new Region((int) rectF.left, (int) rectF.top, (int) rectF.right, (int) rectF.bottom));
                         PathMeasure pm = new PathMeasure(p, false);
@@ -432,6 +440,7 @@ public class CustomImageView extends ImageView{
                         pi.color = paint.getColor();
                         pi.style = paint.getStyle();
                         pi.strokeWidth = paint.getStrokeWidth();
+                        pi.id = id;
 
                         cache.put(id, pi);
                     }
@@ -445,43 +454,16 @@ public class CustomImageView extends ImageView{
                                               @NonNull Canvas canvas,
                                               @Nullable Paint paint) {
 
-
-
-
             }
 
         });
 
         try {
             mSvg.getSharpPicture();
-        }  catch(Exception ex) {
+        } catch (Exception ex) {
 
         }
-
-        //GD = new GestureDetector(getContext(), mGestureListener);
-
-
-
-       // Log.e(TAG, "maxX "+getWidth());
-
-        getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
-            public boolean onPreDraw() {
-                getViewTreeObserver().removeOnPreDrawListener(this);
-                initialWidth = getMeasuredWidth();
-                initialHeight = getMeasuredHeight();
-
-
-
-                scale =  (float)(initialWidth / maxX );
-                setScale(scale);
-
-                return true;
-            }
-        });
     }
-
-    private float[] values = new float[9];
-
 
     public void incScale() {
         saveScale += 0.2f;
@@ -493,114 +475,17 @@ public class CustomImageView extends ImageView{
         invalidate();
     }
 
-    public void setScale(float scale) {
-        this.scale = scale;
+    boolean drawed = false;
 
-        this.matrix.getValues(values);
-        values[0] = scale;
-        values[4] = scale;
-        this.matrix.setValues(values);
-
-        //this.matrix.setScale(scale,scale);
-
-        for(String id: cache.keySet()) {
-            PathInfo pi = cache.get(id);
-            pi.zoomedPath = new Path(pi.path);
-            pi.zoomedPath.transform(matrix);
-            //pi.recalculate();
-        }
-
-        invalidate();
-    }
-
-    public void setPan(float x, float y) {
-        this.matrix.postTranslate(x,y);
-
-        for(String id: cache.keySet()) {
-            PathInfo pi = cache.get(id);
-            pi.zoomedPath = new Path(pi.path);
-            pi.zoomedPath.transform(matrix);
-            //pi.recalculate();
-        }
-
-        invalidate();
-    }
-
-
-
-
-    private class GestureListener extends GestureDetector.SimpleOnGestureListener {
-
-        @Override
-        public boolean onDown(MotionEvent e) {
-            //Log.d("s Tap", "s at: ");
-            return true;
-        }
-        // event when double tap occurs
-        @Override
-        public boolean onDoubleTap(MotionEvent e) {
-            float x = e.getX();
-            float y = e.getY();
-
-            //Log.d("Double Tap", "Tapped at: (" + x + "," + y + ")");
-
-            return true;
-        }
-    }
-
-
-    boolean firstTouch = false;
-    long time = 0;
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == event.ACTION_DOWN) {
-            if (firstTouch && (System.currentTimeMillis() - time) <= 300) {
-                //do stuff here for double tap
-                //Log.e("** DOUBLE TAP**", " second tap ");
-
-
-                for(String id: cache.keySet()) {
-                    PathInfo pi = cache.get(id);
-
-                    if(pi.region.contains((int)event.getX(), (int)event.getY())) {
-                        pi.selected = !pi.selected;
-                    }
-                }
-
-                invalidate();
-
-                firstTouch = false;
-
-            } else {
-                firstTouch = true;
-                time = System.currentTimeMillis();
-                //Log.e("** SINGLE  TAP**", " First Tap time  " + time);
-
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-
-        canvas.save();
-
-        //We're going to scale the X and Y coordinates by the same amount
-        canvas.scale(saveScale, saveScale, 0, 0);
-
-        //We need to divide by the scale factor here, otherwise we end up with excessive panning based on our zoom level
-        //because the translation amount also gets scaled according to how much we've zoomed into the canvas.
-        canvas.translate((-translateX) / saveScale, (-translateY) / saveScale);
-
+    private void drawEverything(Canvas canvas) {
+         /*
         if(touched != null) {
             Paint p = new Paint();
             p.setStrokeWidth(4f);
             p.setColor(Color.WHITE);
             canvas.drawPoint(touched.x, touched.y, p);
         }
+        */
 
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -609,31 +494,29 @@ public class CustomImageView extends ImageView{
         contour.setStrokeWidth(0.5f);
         contour.setColor(Color.BLACK);
 
-
-        for(String id: sorted_map.keySet()) {
+        for (String id : sorted_map.keySet()) {
             PathInfo pi = cache.get(id);
-
-
 
 
             paint.setStyle(pi.style);
             paint.setColor(pi.color);
 
-            switch(paint.getStyle()) {
+            switch (paint.getStyle()) {
                 case FILL:
-                   paint.setStrokeWidth(0.5f);
-                   break;
-               case STROKE:
-               case FILL_AND_STROKE:
-                   paint.setStrokeWidth(pi.strokeWidth);
-                   break;
-           }
+                    paint.setStrokeWidth(0.5f);
+                    break;
+                case STROKE:
+                case FILL_AND_STROKE:
+                    paint.setStrokeWidth(pi.strokeWidth);
+                    break;
+            }
 
             canvas.drawPath(pi.path, paint);
 
-            if(paint.getStyle()== Paint.Style.FILL) {
+            if (paint.getStyle() == Paint.Style.FILL) {
                 canvas.drawPath(pi.path, contour);
             }
+
 
             /*if(pi.selected) {
                 paint.setStyle(Paint.Style.FILL);
@@ -647,12 +530,119 @@ public class CustomImageView extends ImageView{
         }
 
 
+        if(clickPoint != null) {
+
+            float x = clickPoint.x / saveScale - ((-translateX) / saveScale);
+            float y = clickPoint.y / saveScale - ((-translateY) / saveScale);
+
+            float size = 20 ;
+
+            //canvas.drawRect(x - size, y - size,  x + size, y + size, new Paint(Paint.ANTI_ALIAS_FLAG));
+
+            Paint damage = new Paint(Paint.ANTI_ALIAS_FLAG);
+            damage.setStyle(Paint.Style.STROKE);
+            damage.setStrokeWidth(10f);
+            damage.setColor(Color.RED);
+
+
+            canvas.drawLine(x - size, y - size,  x + size, y + size, damage);
+            canvas.drawLine(x + size, y - size,  x - size, y + size, damage);
+
+
+            clickPoint = null;
+
+
+            PathInfo selected = null;
+
+            for (String id : sorted_map.keySet()) {
+                PathInfo pi = cache.get(id);
+                if(pi.region.contains((int)x,(int)y)) {
+                    Log.e("IN", pi.id);
+                    if(selected != null) {
+                        if(selected.rectf.width()*selected.rectf.height() > pi.rectf.width()*pi.rectf.height()) {
+                            selected = pi;
+                            continue;
+                        }
+                    } else {
+                        selected = pi;
+                    }
+                }
+            }
+
+            if(selected != null) {
+                Paint select = new Paint(Paint.ANTI_ALIAS_FLAG);
+                select.setStyle(Paint.Style.FILL);
+                select.setStrokeWidth(0.5f);
+                select.setColor(Color.RED);
+                select.setAlpha(50);
+
+                selected.path.close();
+
+                canvas.drawPath(selected.path, select);
+            }
+
+        }
+
+
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+
+        if (clickPoint != null) {
+            bitmap = Bitmap.createBitmap((int) maxX, (int) maxY, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(bitmap);
+            drawEverything(c);
+        }
+
+
+        canvas.save();
 
 
 
-        //canvas.drawRect(0, 0, 100, 100, paint);
+        //We're going to scale the X and Y coordinates by the same amount
+        canvas.scale(saveScale, saveScale, 0, 0);
+
+        //We need to divide by the scale factor here, otherwise we end up with excessive panning based on our zoom level
+        //because the translation amount also gets scaled according to how much we've zoomed into the canvas.
+
+        canvas.translate((-translateX) / saveScale, (-translateY) / saveScale);
+
+        float x = (focusX) / saveScale - ((-translateX) / saveScale);
+        float y = (focusY) / saveScale - ((-translateY) / saveScale);
+
+
+
+
+
+        if(mode==ZOOM) {
+            canvas.translate((x - startZoomX) * saveScale, (y - startZoomY) * saveScale);
+            Log.e("xy", (x-startZoomX) + " " + (y-startZoomY) + " " + (mode==ZOOM));
+        }
+
+
+
+
+
+
+        canvas.drawBitmap(bitmap, 0f, 0f, new Paint(Paint.ANTI_ALIAS_FLAG));
+
+
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setStrokeWidth(30f);
+        p.setColor(Color.RED);
+
+        canvas.drawPoint(startZoomX, startZoomY, p);
+
+        p.setColor(Color.GREEN);
+        canvas.drawPoint(x, y, p);
+
+
 
         canvas.restore();
+
+
     }
 
     public static class PathInfo {
@@ -660,8 +650,9 @@ public class CustomImageView extends ImageView{
         public RectF rectf;
         public PathMeasure pathMeasure;
         public Path path;
-        public Path zoomedPath;
+        public Path bounds;
         public boolean selected;
+        public String id;
 
         public int color;
         public float strokeWidth;
@@ -672,7 +663,14 @@ public class CustomImageView extends ImageView{
             this.rectf = rectf;
             this.pathMeasure = pathMeasure;
             this.path = path;
-            this.zoomedPath = path;
+            recalculate();
+        }
+
+        public void recalculate() {
+            rectf = new RectF();
+            path.computeBounds(rectf, true);
+            region = new Region();
+            region.setPath(path, new Region((int) rectf.left, (int) rectf.top, (int) rectf.right, (int) rectf.bottom));
         }
 
 
